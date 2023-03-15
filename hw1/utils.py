@@ -9,7 +9,7 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import functional as F
 
-from . import dense_transforms
+import dense_transforms
 
 
 class VehicleClassificationDataset(Dataset):

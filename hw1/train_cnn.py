@@ -1,5 +1,5 @@
-from .models import CNNClassifier, save_model, SoftmaxCrossEntropyLoss
-from .utils import ConfusionMatrix, load_data, VehicleClassificationDataset
+from models import CNNClassifier, save_model, SoftmaxCrossEntropyLoss
+from utils import ConfusionMatrix, load_data, VehicleClassificationDataset
 import torch
 import torchvision
 import torch.utils.tensorboard as tb
