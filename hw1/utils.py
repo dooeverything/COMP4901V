@@ -45,7 +45,8 @@ class VehicleClassificationDataset(Dataset):
         id, label = self.data[idx]
         img = Image.open(id)
 
-        trans = transforms.Compose([transforms.ToTensor()])
+        trans = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Resize((224, 224))])
 
         img_tensor = trans(img)
 

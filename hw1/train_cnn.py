@@ -15,10 +15,11 @@ def train(args):
     Your code here
     """
 
-    dataset = VehicleClassificationDataset(path)
+    dataset_path = "datasets/train"
+    dataset = VehicleClassificationDataset(dataset_path)
 
-    train_size = 0.8 * len(dataset)
-    valid_size = 0.2 * len(dataset)
+    train_size = int(0.8 * len(dataset))
+    valid_size = int(0.2 * len(dataset)) + 1
 
     train_data, valid_data = torch.utils.data.random_split(dataset, [train_size, valid_size])
     

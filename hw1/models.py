@@ -32,6 +32,7 @@ class CNNClassifier(torch.nn.Module):
         Your code here
         """        
         x = self.model(x)
+        print(f"Shape of output of resnet: {x.shape}")
         x = self.mlp_head(x)
 
         return x
