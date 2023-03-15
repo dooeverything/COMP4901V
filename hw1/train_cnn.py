@@ -27,6 +27,8 @@ def train(args):
     train_data = VehicleClassificationDataset(train_data_path);
     valid_data = VehicleClassificationDataset(valid_data_path)
 
+    print(f"Size of the data : {train_data.__len__()}")
+
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=64, shuffle=False)
 
@@ -46,8 +48,8 @@ def train(args):
 
         print(f"EPOCH {epoch + 1} for train...")
         for i, data in enumerate(train_loader):
-            if(i+1) % 1 == 0:
-              print(f"iteration: {i+1}")
+            if(i+1) % 10 == 0:
+              print(f"iteration: {i+11} ")
             
             X, t = data
 
@@ -65,8 +67,8 @@ def train(args):
             optimizer.step()
 
             loss_sum += loss.item()
-            if (i+1) % 1000 == 0:
-                loss_avg = loss_sum / 1000
+            if (i+1) % 100 == 0:
+                loss_avg = loss_sum / 100
                 print(f"\t Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
                 train_logger.add_scalar('train/loss', loss_avg, tb_x)
