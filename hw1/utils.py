@@ -23,7 +23,7 @@ class VehicleClassificationDataset(Dataset):
         self.label = {'Bicycle' : 0, 'Car' : 1, 'Taxi' : 2, 'Bus' : 3, 'Truck' : 4, 'Van' : 5}
 
         for key, value in self.label.items():
-            img_path = dataset_path + '/train/' + key
+            img_path = dataset_path + key
             for img_file in os.listdir(img_path):
                 self.data.append([img_path + '/' + img_file, value])
 
