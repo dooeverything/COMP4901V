@@ -15,8 +15,8 @@ def train(args):
     Your code here
     """
 
-    train_data_path = "datasets/train"
-    valid_data_path = "datasets/valid"
+    train_data_path = "datasets/train/"
+    valid_data_path = "datasets/validation/"
     # dataset = VehicleClassificationDataset(dataset_path)
 
     # train_size = int(0.8 * len(dataset))
@@ -44,8 +44,11 @@ def train(args):
         loss_sum = 0
         loss_avg = 0
 
-        print(f"EPOCH {epoch + 1} for train.....")
+        print(f"EPOCH {epoch + 1} for train...")
         for i, data in enumerate(train_loader):
+            if(i+1) % 1 == 0:
+              print(f"iteration: {i+1}")
+            
             X, t = data
 
             pred = model(X)
@@ -54,6 +57,9 @@ def train(args):
             optimizer.zero_grad()
 
             loss = loss_fn(pred, t)
+
+            print(f"Loss: {loss.item()}")
+
             loss.backward()
 
             optimizer.step()
@@ -69,7 +75,7 @@ def train(args):
         print(f"\n\t [Train] Loss : {loss_avg}")
 
         v_loss_sum = 0
-        print(f"EPOCH {epoch+1} for validation.....")
+        print(f"EPOCH {epoch+1} for validation...")
         for i, valid_data in enumerate(valid_loader):
             v_X, v_t = valid_data
 

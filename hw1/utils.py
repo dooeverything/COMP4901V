@@ -25,6 +25,10 @@ class VehicleClassificationDataset(Dataset):
         for key, value in self.label.items():
             img_path = dataset_path + key
             for img_file in os.listdir(img_path):
+                file_name, file_extension = os.path.splitext(img_file)
+                if file_extension != '.jpg':
+                  print(f"File extension not applicable {file_extension}")
+                  continue
                 self.data.append([img_path + '/' + img_file, value])
 
         #raise NotImplementedError('VehicleClassificationDataset.__init__')

@@ -14,13 +14,19 @@ class CNNClassifier(torch.nn.Module):
         Your code here
         """
 
-        self.model = models.resnet50(weights="IMAGENET1K_V1")
+        model_resnet50 = models.resnet50(weights="IMAGENET1K_V1")
+        #self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-1])
+        self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
         
+        self.avgPooling = nn.AvgPool2d(7)
+        
+        self.linear = nn.Linear(2048, 1024)
+
         self.mlp_head = nn.Sequential(
             nn.AvgPool2d(7),
-            nn.Linear(1024, 2048),
+            nn.Conv2d(2048, 1024, 1),
             nn.ReLU(),
-            nn.Linear(6, 1024)
+            nn.Conv2d(1024, 6, 1)
         )
 
         self.loss = 0
@@ -32,8 +38,13 @@ class CNNClassifier(torch.nn.Module):
         Your code here
         """        
         x = self.model(x)
-        print(f"Shape of output of resnet: {x.shape}")
+        #print(f"Shape of output of resnet: {x.shape}")
+
         x = self.mlp_head(x)
+        #print(f"Shape of output of mlp head: {x.shape}")
+
+        x = torch.reshape(x, (64, 6))
+        #print(f"Shape of output of reshape: {x.shape}")
 
         return x
         #raise NotImplementedError('CNNClassifier.forward') 
@@ -107,8 +118,8 @@ class SoftmaxCrossEntropyLoss(nn.Module):
         Hint: return loss, F.cross_entropy(inputs, targets)
         """
 
-        y = np.exp(inputs) / np.exp(np.sum(inputs)) # softmax function
-        loss = -np.sum(np.log(y[targets])) # negative log softmax loss function
+        y = torch.exp(inputs) / torch.exp(torch.sum(inputs)) # softmax function
+        loss = -torch.sum(torch.log(y[targets])) # negative log softmax loss function
 
         return loss
 
