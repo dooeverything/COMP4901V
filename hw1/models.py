@@ -118,7 +118,17 @@ class SoftmaxCrossEntropyLoss(nn.Module):
         Hint: return loss, F.cross_entropy(inputs, targets)
         """
 
-        y = torch.exp(inputs) / torch.exp(torch.sum(inputs)) # softmax function
+        #print("inputs in loss function : ")
+        #print(inputs[0])
+
+        y = torch.exp(inputs) / torch.sum(torch.exp(inputs)) # softmax function
+        
+        #print("y in loss function: ")
+        #print(y[0])
+        
+        #print("target in loss function : ")
+        #print(targets[0])
+
         loss = -torch.sum(torch.log(y[targets])) # negative log softmax loss function
 
         return loss

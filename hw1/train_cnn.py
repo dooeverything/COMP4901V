@@ -15,6 +15,8 @@ def train(args):
     Your code here
     """
 
+    BATCH_SIZE = 64
+
     train_data_path = "datasets/train/"
     valid_data_path = "datasets/validation/"
     # dataset = VehicleClassificationDataset(dataset_path)
@@ -29,17 +31,16 @@ def train(args):
 
     print(f"Size of the data : {train_data.__len__()}")
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
-    valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=64, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=BATCH_SIZE, shuffle=False)
 
     loss_fn = SoftmaxCrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    epochs = 5
-
+    EPOCHS = 1
     v_loss_min = 1_000_000.
 
-    for epoch in range(epochs):
+    for epoch in range(EPOCHS):
 
         model.train(True)
 
@@ -49,7 +50,7 @@ def train(args):
         print(f"EPOCH {epoch + 1} for train...")
         for i, data in enumerate(train_loader):
             if(i+1) % 10 == 0:
-              print(f"iteration: {i+11} ")
+              print(f"iteration: {i+1} ")
             
             X, t = data
 
@@ -59,21 +60,26 @@ def train(args):
             optimizer.zero_grad()
 
             loss = loss_fn(pred, t)
+            
+            if loss.isnan():
+              print("error with nan")
+              break
 
-            print(f"Loss: {loss.item()}")
+            #print(f"Loss: {loss.item()}")
 
             loss.backward()
 
             optimizer.step()
 
             loss_sum += loss.item()
-            if (i+1) % 100 == 0:
-                loss_avg = loss_sum / 100
+
+            if (i+1) % 10 == 0 or (i+1) == BATCH_SIZE:
+                loss_avg = loss_sum / 10
                 print(f"\t Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
                 train_logger.add_scalar('train/loss', loss_avg, tb_x)
 
-        loss_avg = loss_sum / len(i+1)
+        loss_avg = loss_sum / BATCH_SIZE
         print(f"\n\t [Train] Loss : {loss_avg}")
 
         v_loss_sum = 0

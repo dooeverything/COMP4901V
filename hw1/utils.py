@@ -27,7 +27,7 @@ class VehicleClassificationDataset(Dataset):
             for img_file in os.listdir(img_path):
                 file_name, file_extension = os.path.splitext(img_file)
                 if file_extension != '.jpg':
-                  print(f"File extension not applicable {file_extension}")
+                  print(f"File extension not applicable : {file_name}")
                   continue
                 self.data.append([img_path + '/' + img_file, value])
 
