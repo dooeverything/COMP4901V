@@ -81,6 +81,7 @@ def train(args):
                 train_logger.add_scalar('train/loss', loss_avg, tb_x)
 
         loss_avg = sum(loss_list) / (i+1)
+        loss_list.clear()
 
         print(f"EPOCH {epoch+1} for validation...")
         for i, valid_data in enumerate(valid_loader):
@@ -94,6 +95,7 @@ def train(args):
             
 
         v_loss_avg = sum(v_loss_list) / (i+1)
+        v_loss_list.clear()
 
         print(f"  [Train] Loss : {loss_avg} [Valid] Loss : {v_loss_avg} \n")
 
