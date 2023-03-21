@@ -50,8 +50,8 @@ def train(args):
         v_loss_list = []
         print(f"EPOCH {epoch + 1} for train...")
 
+        loss_sum = 0
         for i, data in enumerate(train_loader):
-            loss_sum = 0
             X, t = data
             pred = model(X)
             loss = model.loss
@@ -74,7 +74,7 @@ def train(args):
 
             if (i+1) % 10 == 0 or (i+1) == BATCH_SIZE:
                 # print(f"size of X: {X.shape}")
-                loss_avg = loss_sum / 10
+                loss_avg = loss_sum / (i+1)
                 loss_list.append(loss_avg)
                 print(f"  Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
@@ -85,14 +85,15 @@ def train(args):
 
         print(f"EPOCH {epoch+1} for validation...")
         for i, valid_data in enumerate(valid_loader):
+            if (i+1) % 10:
+                print(f"  {i+1} validation....")
             v_loss_sum = 0
             v_X, v_t = valid_data
 
             v_pred = model(v_X)
             v_loss = loss_fn(v_pred, v_t)
-            v_loss_list.append(v_loss)
-            #v_loss_sum += v_loss
-            
+            #v_loss_list.append(v_loss)
+            v_loss_sum += v_loss
 
         v_loss_avg = sum(v_loss_list) / (i+1)
         v_loss_list.clear()
