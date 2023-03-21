@@ -17,8 +17,8 @@ def train(args):
 
     BATCH_SIZE = 64
 
-    train_data_path = "datasets/train/"
-    valid_data_path = "datasets/validation/"
+    train_data_path = "datasets/vehicle/train/"
+    valid_data_path = "datasets/vehicle/validation/"
     # dataset = VehicleClassificationDataset(dataset_path)
 
     # train_size = int(0.8 * len(dataset))
@@ -29,10 +29,10 @@ def train(args):
     train_data = VehicleClassificationDataset(train_data_path);
     valid_data = VehicleClassificationDataset(valid_data_path)
 
-    print(f"Size of the data : {train_data.__len__()}")
+    print(f"Train on {train_data.__len__()} samples , Validate on {valid_data.__len__()} samples")
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
-    valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=64, shuffle=False)
 
     loss_fn = SoftmaxCrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
@@ -44,16 +44,13 @@ def train(args):
 
         model.train(True)
 
-        loss_sum = 0
         loss_avg = 0
 
         print(f"EPOCH {epoch + 1} for train...")
-        for i, data in enumerate(train_loader):
-            if(i+1) % 10 == 0:
-              print(f"iteration: {i+1} ")
-            
-            X, t = data
 
+        for i, data in enumerate(train_loader):
+            loss_sum = 0
+            X, t = data
             pred = model(X)
             loss = model.loss
 
@@ -62,8 +59,8 @@ def train(args):
             loss = loss_fn(pred, t)
             
             if loss.isnan():
-              print("error with nan")
-              break
+                print("error with nan")
+                break
 
             #print(f"Loss: {loss.item()}")
 
@@ -74,13 +71,13 @@ def train(args):
             loss_sum += loss.item()
 
             if (i+1) % 10 == 0 or (i+1) == BATCH_SIZE:
+                # print(f"size of X: {X.shape}")
                 loss_avg = loss_sum / 10
-                print(f"\t Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
+                print(f"  Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
                 train_logger.add_scalar('train/loss', loss_avg, tb_x)
 
-        loss_avg = loss_sum / BATCH_SIZE
-        print(f"\n\t [Train] Loss : {loss_avg}")
+        loss_avg = loss_sum / (i+1)
 
         v_loss_sum = 0
         print(f"EPOCH {epoch+1} for validation...")
@@ -92,12 +89,10 @@ def train(args):
             v_loss_sum += v_loss
 
         v_loss_avg = v_loss_sum / (i+1)
-        print(f"\n\t [Valid] Loss : {v_loss_avg} \n")
+
+        print(f"  [Train] Loss : {loss_avg} [Valid] Loss : {v_loss_avg} \n")
 
         valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
-
-        train_logger.add_scalar('Train Loss vs Valid Loss', 
-        {'Train' : loss_avg, 'Valid' : v_loss_avg}, epoch+1)
 
         train_logger.flush()
         valid_logger.flush()

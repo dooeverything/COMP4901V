@@ -37,13 +37,15 @@ class CNNClassifier(torch.nn.Module):
         """
         Your code here
         """        
+        batch_size = x.shape[0]
+        # print(f"Batch size : {batch_size}")
         x = self.model(x)
         #print(f"Shape of output of resnet: {x.shape}")
 
         x = self.mlp_head(x)
         #print(f"Shape of output of mlp head: {x.shape}")
 
-        x = torch.reshape(x, (64, 6))
+        x = torch.reshape(x, (batch_size, 6)) # convert (batchsize, number of class to detect, 1, 1) to (batchsize, number of class to detect)
         #print(f"Shape of output of reshape: {x.shape}")
 
         return x
