@@ -78,14 +78,14 @@ def train(args):
                 loss_list.append(loss_avg)
                 print(f"  Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
-                train_logger.add_scalar('train/loss', loss_avg, tb_x)
+                #train_logger.add_scalar('train/loss', loss_avg, tb_x)
 
         loss_avg = sum(loss_list) / (i+1)
         loss_list.clear()
 
         print(f"EPOCH {epoch+1} for validation...")
         for i, valid_data in enumerate(valid_loader):
-            if (i+1) % 10:
+            if (i+1) % 10 == 0:
                 print(f"  {i+1} validation....")
             v_loss_sum = 0
             v_X, v_t = valid_data
@@ -100,7 +100,7 @@ def train(args):
 
         print(f"  [Train] Loss : {loss_avg} [Valid] Loss : {v_loss_avg} \n")
 
-        valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
+        #valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
 
         train_logger.flush()
         valid_logger.flush()
