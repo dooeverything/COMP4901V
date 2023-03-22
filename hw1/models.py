@@ -13,7 +13,7 @@ class CNNClassifier(torch.nn.Module):
         """
         Your code here
         """
-
+        dropout = 0.1
         model_resnet50 = models.resnet50(weights="IMAGENET1K_V1")
         #self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-1])
         self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
@@ -22,11 +22,13 @@ class CNNClassifier(torch.nn.Module):
         
         self.linear = nn.Linear(2048, 1024)
 
+        self.avg = nn.AvgPool2d(7)
+        
         self.mlp_head = nn.Sequential(
-            nn.AvgPool2d(7),
-            nn.Conv2d(2048, 1024, 1),
+            nn.Linear(2048, 1024), #nn.Conv2d(2048, 1024, 1),
             nn.ReLU(),
-            nn.Conv2d(1024, 6, 1)
+            nn.Dropout(dropout),
+            nn.Linear(1024, 6)
         )
 
         self.loss = 0
@@ -38,14 +40,19 @@ class CNNClassifier(torch.nn.Module):
         Your code here
         """        
         batch_size = x.shape[0]
-        # print(f"Batch size : {batch_size}")
+        #print(f"Batch size : {batch_size}")
+        
         x = self.model(x)
         #print(f"Shape of output of resnet: {x.shape}")
+
+        x = self.avg(x)
+        x = torch.reshape(x, (batch_size, 2048))
+        #print(f"Shape of output of mlp head: {x.shape}")
 
         x = self.mlp_head(x)
         #print(f"Shape of output of mlp head: {x.shape}")
 
-        x = torch.reshape(x, (batch_size, 6)) # convert (batchsize, number of class to detect, 1, 1) to (batchsize, number of class to detect)
+        #x = torch.reshape(x, (batch_size, 6)) # convert (batchsize, number of class to detect, 1, 1) to (batchsize, number of class to detect)
         #print(f"Shape of output of reshape: {x.shape}")
 
         return x
@@ -120,18 +127,31 @@ class SoftmaxCrossEntropyLoss(nn.Module):
         Hint: return loss, F.cross_entropy(inputs, targets)
         """
 
-        #print("inputs in loss function : ")
+        #print(f"inputs in loss function : {inputs.shape}")
         #print(inputs[0])
-
-        y = torch.exp(inputs) / torch.sum(torch.exp(inputs)) # softmax function
+        #batch_size = inputs.shape[0]
         
         #print("y in loss function: ")
         #print(y[0])
         
-        #print("target in loss function : ")
+        #print(f"target in loss function : {targets.shape}")
         #print(targets[0])
 
-        loss = -torch.sum(torch.log(y[targets])) # negative log softmax loss function
+        #sum_softmax = torch.sum(torch.exp(inputs), 1, keepdim=True)
+        #print(f"sum_softmax shape {sum_softmax.shape}")
+        softmax = torch.exp(inputs) /  torch.sum(torch.exp(inputs), 1, keepdim=True) # softmax function
+        #softmax_test = F.softmax(inputs)
+        
+        #print(f"softmax vs softmax_test {softmax.shape} vs {softmax_test.shape}")
+        #print(f"softmax with targets column : {softmax[np.arange(softmax.shape[0]), targets]}")
+        #print(f"softmax with targets column : {-torch.log(softmax[np.arange(softmax.shape[0]), targets])}")
+        
+        loss = -torch.log(softmax[np.arange(softmax.shape[0]), targets]).sum() / inputs.shape[0] # negative log softmax loss function
+        #loss_test = F.cross_entropy(inputs, targets)
+
+        #print(f"loss vs loss+test : {loss} vs {loss_test}")
+
+        #print("y after softmax in loss function: ")
 
         return loss
 

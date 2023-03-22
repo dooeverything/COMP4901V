@@ -37,25 +37,26 @@ def train(args):
     loss_fn = SoftmaxCrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
-    EPOCHS = 1
+    EPOCHS = 5
     v_loss_min = 1_000_000.
 
     for epoch in range(EPOCHS):
 
         model.train(True)
 
-        loss_avg = 0
+        epoch_loss = 0.0
+        #loss_sum = 0
 
         loss_list = []
         v_loss_list = []
-        print(f"EPOCH {epoch + 1} for train...")
+        
+        print(f"EPOCH {epoch + 1} for train... with {len(train_loader)}")
 
-        loss_sum = 0
         for i, data in enumerate(train_loader):
             X, t = data
             pred = model(X)
             loss = model.loss
-
+            
             optimizer.zero_grad()
 
             loss = loss_fn(pred, t)
@@ -68,26 +69,33 @@ def train(args):
 
             loss.backward()
 
+            #print("backward!")
+
             optimizer.step()
 
-            loss_sum += loss.item()
+            #print("optimzier!")
 
+            epoch_loss += loss.item()
+
+            #print("sum")
             if (i+1) % 10 == 0 or (i+1) == BATCH_SIZE:
                 # print(f"size of X: {X.shape}")
-                loss_avg = loss_sum / (i+1)
+                loss_avg = epoch_loss / (i+1)
                 loss_list.append(loss_avg)
+                print(f"shape of loss_list {len(loss_list)}")
                 print(f"  Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
-                #train_logger.add_scalar('train/loss', loss_avg, tb_x)
+                train_logger.add_scalar('train/loss', loss_avg, tb_x)
 
-        loss_avg = sum(loss_list) / (i+1)
+        
+        loss_avg = sum(loss_list) / len(loss_list)
         loss_list.clear()
 
         print(f"EPOCH {epoch+1} for validation...")
+        v_loss_sum = 0
         for i, valid_data in enumerate(valid_loader):
             if (i+1) % 10 == 0:
                 print(f"  {i+1} validation....")
-            v_loss_sum = 0
             v_X, v_t = valid_data
 
             v_pred = model(v_X)
@@ -95,12 +103,12 @@ def train(args):
             #v_loss_list.append(v_loss)
             v_loss_sum += v_loss
 
-        v_loss_avg = sum(v_loss_list) / (i+1)
+        v_loss_avg = v_loss_sum / (i+1)
         v_loss_list.clear()
 
         print(f"  [Train] Loss : {loss_avg} [Valid] Loss : {v_loss_avg} \n")
 
-        #valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
+        valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
 
         train_logger.flush()
         valid_logger.flush()
