@@ -42,8 +42,10 @@ def train(args):
     v_loss = 0
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model.eval().to(device)
+    print(f"run model on {device}")
+    model.to(device)
     
+    model.train()
     for epoch in range(EPOCHS):
 
         model.train(True)
@@ -57,6 +59,7 @@ def train(args):
 
         for i, data in enumerate(train_loader):
             X, t = data
+            X, t = X.to(device), t.to(device)
             pred = model(X)
             loss = model.loss
             
@@ -81,7 +84,7 @@ def train(args):
             epoch_loss += loss.item()
 
             #print("sum")
-            if (i+1) % 10 == 0 or (i+1) == BATCH_SIZE:
+            if (i+1) % 10 == 0:
                 # print(f"size of X: {X.shape}")
                 loss_avg = epoch_loss / (i+1)
                 loss_list.append(loss_avg)
@@ -89,6 +92,8 @@ def train(args):
                 print(f"  Batch {i+1} / {len(train_loader)} Loss : {loss_avg}")
                 tb_x = epoch * len(train_loader) + i + 1
                 train_logger.add_scalar('train/loss', loss_avg, tb_x)
+            torch.cuda.empty_cache()
+            
 
         
         loss_avg = sum(loss_list) / len(loss_list)
@@ -96,15 +101,18 @@ def train(args):
         loss_list.clear()
         loss_avg = 0
 
+        torch.cuda.empty_cache()
+        #model.eval()
         print(f"EPOCH {epoch+1} for validation...")
-        for i, valid_data in enumerate(valid_loader):
-            v_X, v_t = valid_data
-
-            v_pred = model(v_X)
-            v_loss = loss_fn(v_pred, v_t)
-            print(f"  {i+1} validation....")
-            if v_loss_min > v_loss:
-              v_loss_min = v_loss
+        with torch.no_grad():
+            for i, valid_data in enumerate(valid_loader):
+                v_X, v_t = valid_data
+                v_X, v_t = v_X.to(device), v_t.to(device)
+                v_pred = model(v_X)
+                v_loss = loss_fn(v_pred, v_t)
+                print(f"  {i+1} validation....")
+                if v_loss_min > v_loss:
+                    v_loss_min = v_loss
 
         print(f"  [Valid] Loss : {v_loss_min} \n")
 

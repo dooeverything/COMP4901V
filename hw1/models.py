@@ -22,11 +22,18 @@ class CNNClassifier(torch.nn.Module):
 
         self.avg = nn.AvgPool2d(7)
         
-        self.mlp_head = nn.Sequential(
-            nn.Linear(2048, 1024), #nn.Conv2d(2048, 1024, 1),
+        self.mlp_head_1 = nn.Sequential(
+            #nn.Linear(2048, 1024), 
+            nn.Conv2d(2048, 1024, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(1024),
+            nn.Dropout(dropout),
+        )
+        
+        self.mlp_head_2 = nn.Sequential(
+            nn.Linear(1024, 6),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(1024, 6)
         )
 
         self.loss = 0
@@ -44,10 +51,12 @@ class CNNClassifier(torch.nn.Module):
         #print(f"Shape of output of resnet: {x.shape}")
 
         x = self.avg(x)
-        x = torch.reshape(x, (batch_size, 2048))
+        x = self.mlp_head_1(x)
+        
+        x = torch.reshape(x, (batch_size, 1024))
+        x = self.mlp_head_2(x)
         #print(f"Shape of output of mlp head: {x.shape}")
 
-        x = self.mlp_head(x)
         #print(f"Shape of output of mlp head: {x.shape}")
 
         #x = torch.reshape(x, (batch_size, 6)) # convert (batchsize, number of class to detect, 1, 1) to (batchsize, number of class to detect)
