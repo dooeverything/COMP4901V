@@ -41,6 +41,9 @@ def train(args):
     v_loss_min = 1_000_000.
     v_loss = 0
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.eval().to(device)
+    
     for epoch in range(EPOCHS):
 
         model.train(True)

@@ -97,3 +97,7 @@ def label_to_pil_image(lbl):
 class ToTensor(object):
     def __call__(self, image, label):
         return F.to_tensor(image), label_to_tensor(label)
+    
+class ToTensor3(object):
+    def __call__(self, image, label1, label2):
+        return F.to_tensor(image), label_to_tensor(label1), label_to_tensor(label2)

@@ -1,15 +1,15 @@
 import torch
 import numpy as np
 
-from .models import FCN_ST, save_model
-from .utils import load_dense_data, ConfusionMatrix
-from . import dense_transforms
+from models import FCN_ST, save_model
+from utils import load_dense_data, ConfusionMatrix, DenseCityscapesDataset
 import torch.utils.tensorboard as tb
+import dense_transforms as dt
 
 
 def train(args):
     from os import path
-    model = FCN_ST()
+    #model = FCN_ST()
     train_logger, valid_logger = None, None
     if args.log_dir is not None:
         train_logger = tb.SummaryWriter(path.join(args.log_dir, 'train'), flush_secs=1)
@@ -22,7 +22,30 @@ def train(args):
     Hint: Use dense_transforms for data augmentation. If you found a good data augmentation parameters for the CNN, use them here too.
     Hint: Use the log function below to debug and visualize your model
     """
-    save_model(model)
+    
+    train_data_path = "datasets/cityscapes/train/"
+    valid_data_path = "datasets/cityscapes/valid/"
+    
+    #trans_data = dense_transforms.Compose([transforms.ToTensor()])
+    train_data = DenseCityscapesDataset(train_data_path)
+    valid_data = DenseCityscapesDataset(valid_data_path)
+    
+    BATCH_SIZE = 32
+    
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=BATCH_SIZE, shuffle=False)
+    
+    print(f"length of the data : {train_data.__len__()}")
+    
+    #data = train_data.__getitem__(0)
+    
+    
+    
+    #img = dt.label_to_pil_image(data[2])
+    #img.show()
+    
+    
+    #save_model(model)
 
 
 def log(logger, imgs, lbls, logits, global_step):

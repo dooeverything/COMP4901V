@@ -17,9 +17,7 @@ class CNNClassifier(torch.nn.Module):
         model_resnet50 = models.resnet50(weights="IMAGENET1K_V1")
         #self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-1])
         self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
-        
-        self.avgPooling = nn.AvgPool2d(7)
-        
+                
         self.linear = nn.Linear(2048, 1024)
 
         self.avg = nn.AvgPool2d(7)
@@ -70,9 +68,28 @@ class FCN_ST(torch.nn.Module):
         Hint: Use residual connections
         Hint: Always pad by kernel_size / 2, use an odd kernel_size
         """
-
-
-
+        dropout = 0.1
+        model_resnet50 = models.resnet50(weights="IMAGENET1K_V1") # output : (BS, 1024, 1)
+        
+        # Implement FCN - Fully Connected Networks for Image Segmentations
+        self.encoder = torch.nn.Sequential(*list(model_resnet50.children())[:-2]) # output : (BS, 2048, 7, 7)
+        
+        self.neck = torch.nn.Sequential(
+            nn.AvgPool2d(7), # output : (BS, 2048, 1, 1)
+            nn.Conv2d(2048, 1024, 1), # output : (BS, 1024, 1, 1)
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Conv2d(1024, 1024, 1),
+            nn.ReLU(),
+        )
+        
+        #input : (BS, 1024, 1, 1) -> (BS, 1024 7, 7)
+        self.decoder = torch.nn.Sequential(
+            #nn.ConvTranspose2d(1024, , )
+        )
+        
+        
+        
         raise NotImplementedError('FCN_ST.__init__')
 
     def forward(self, x):
