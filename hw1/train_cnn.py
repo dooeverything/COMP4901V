@@ -67,7 +67,7 @@ def train(args):
 
             loss = loss_fn(pred, t)
             
-            if loss.isnan():
+            if torch.any(torch.isnan(loss)):
                 print("error with nan")
                 break
 

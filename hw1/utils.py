@@ -130,7 +130,7 @@ class DenseCityscapesDataset(Dataset):
         
         return data
         
-        raise NotImplementedError('DenseCityscapesDataset.__getitem__')
+        #raise NotImplementedError('DenseCityscapesDataset.__getitem__')
 
 
 class DenseVisualization():
