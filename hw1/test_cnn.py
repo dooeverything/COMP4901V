@@ -1,6 +1,7 @@
 from .models import CNNClassifier
-from .utils import ConfusionMatrix, load_data
+from .utils import ConfusionMatrix, load_data, VehicleClassificationDataset
 import torch
+from torch.utils.data import DataLoader 
 import torchvision
 import torch.utils.tensorboard as tb
 
@@ -14,6 +15,32 @@ def test(args):
     Hint: load the saved checkpoint of your model, and perform evaluation for the vehicle classification task
     Hint: use the ConfusionMatrix for you to calculate accuracy
     """
+
+    model = CNNClassifier()
+    path = 'pretrained/cnn.th'
+    model.load_state_dict(torch.load(path))
+    model.cuda()
+    model.eval()
+
+
+    data_path = 'datasets/vehicle/test'
+    test_data = VehicleClassificationDataset(dataset_path=data_path, train=False)
+    test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
+
+    confusion = ConfusionMatrix(size=6)
+    test_acc = 0
+    with torch.no_grad():
+        for i, data in enumerate(test_loader):
+            X, t = data
+            X, t = X.cuda(), t.cuda()
+
+            pred = model(X)
+            pred_max = pred.argmax(1)
+            confusion.add(pred_max, t)
+            test_acc += confusion.global_accuracy
+    
+    accuracy = test_acc / (i+1)
+
     return accuracy
 
 

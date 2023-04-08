@@ -8,12 +8,11 @@ from glob import glob
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import functional as F
-
 import dense_transforms as dt
 
 
 class VehicleClassificationDataset(Dataset):
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, transform=None, train=True):
         """
         Your code here
         Hint: load your data from provided dataset (VehicleClassificationDataset) to train your designed model
@@ -21,23 +20,28 @@ class VehicleClassificationDataset(Dataset):
         # e.g., Bicycle 0, Car 1, Taxi 2, Bus 3, Truck 4, Van 5
         self.data = []
         self.label = {'Bicycle' : 0, 'Car' : 1, 'Taxi' : 2, 'Bus' : 3, 'Truck' : 4, 'Van' : 5}
+        self.transform = transform
 
-        for key, value in self.label.items():
-            img_path = dataset_path + key
+        if train:
+            for key, value in self.label.items():
+                img_path = dataset_path + key
+                for img_file in os.listdir(img_path):
+                    file_name, file_extension = os.path.splitext(img_file)
+                    if file_extension != '.jpg':
+                        #print(f"File extension not applicable : {file_name}")
+                        continue
+                    self.data.append([img_path + '/' + img_file, value])
+        else:
             for img_file in os.listdir(img_path):
                 file_name, file_extension = os.path.splitext(img_file)
                 if file_extension != '.jpg':
-                    print(f"File extension not applicable : {file_name}")
                     continue
-                self.data.append([img_path + '/' + img_file, value])
-
-        #raise NotImplementedError('VehicleClassificationDataset.__init__')
+                self.data.append([img_path + '/' + img_file], 1)
 
     def __len__(self):
         """
         Your code here
         """
-        #raise NotImplementedError('VehicleClassificationDataset.__len__')
         return len(self.data)
 
     def __getitem__(self, idx):
@@ -46,19 +50,16 @@ class VehicleClassificationDataset(Dataset):
         Hint: generate samples for training
         Hint: return image, and its image-level class label
         """
-        id, label = self.data[idx]
-        img = Image.open(id)
+        img_id, label = self.data[idx]
+        img = Image.open(img_id)
 
-        trans = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Resize((224, 224))])
+        if self.transform:
+            img = self.transform(img)
 
-        img_tensor = trans(img)
-
-        return img_tensor, label
-        #raise NotImplementedError('VehicleClassificationDataset.__getitem__')
+        return img, label
 
 class DenseCityscapesDataset(Dataset):
-    def __init__(self, dataset_path, transform=[dt.ToTensor3()]):
+    def __init__(self, dataset_path, transform=None):
         """
         Your code here
         """
@@ -66,15 +67,15 @@ class DenseCityscapesDataset(Dataset):
         print("initiating dataset " + dataset_path)
         
         self.data_path = dataset_path
-        self.tran = transform
+        self.transform = transform
         self.data_types = ['depth', 'image', 'label']
-        
+
         self.images = []
         self.depths_gt = []
         self.labels_gt = []
         
         for data_type in self.data_types:
-            print(data_type)
+            # print(data_type)
             data_path = dataset_path + data_type
             for npy_file in os.listdir(data_path):
                 npy_path = data_path + '/' + npy_file
@@ -90,14 +91,6 @@ class DenseCityscapesDataset(Dataset):
                     self.images.append(data)
                 else:
                     self.labels_gt.append(data)
-                
-                #if data_type == 'depth':
-                    #print(data[:,:,0].shape)
-                    #print(np.median(data[:,:,0].shape))
-                    #im = Image.fromarray((data[:,:,0]*255).astype(np.uint8))
-                    #im.show()
-
-        #raise NotImplementedError('DenseCityscapesDataset.__init__')
 
     def __len__(self):
 
@@ -105,7 +98,6 @@ class DenseCityscapesDataset(Dataset):
         Your code here
         """
         return len(self.images)
-        #raise NotImplementedError('DenseCityscapesDataset.__len__')
 
     def __getitem__(self, idx):
 
@@ -113,27 +105,27 @@ class DenseCityscapesDataset(Dataset):
         Hint: generate samples for training
         Hint: return image, semantic_GT, and depth_GT
         """
-        #print(f"get item from {idx}")
         image = self.images[idx]
-        depth = self.depths_gt[idx]
+        value = self.depths_gt[idx]
         label = self.labels_gt[idx]
-        
-        compose = dt.Compose3(self.tran)
-        
-        data = compose(image, depth, label)
-        
-        # im = Image.fromarray((image*255).astype(np.uint8))
-        # dp = Image.fromarray((depth[:,:,0]*255).astype(np.uint8))
 
-        # im.show()
-        # dp.show()
-        
-        return data
-        
-        #raise NotImplementedError('DenseCityscapesDataset.__getitem__')
+        image = Image.fromarray((image*255).astype(np.uint8), mode='RGB')
+        label = dt.label_to_pil_image(label)
+    
+        value = value[:,:,0]
+        d = ( (value*65535) - 1) / 256
+        depth = (0.222384*2273.82) / d
+        depth[depth<0] = 0
+        depth = Image.fromarray( np.uint8(depth), mode='L') 
+        # depth.save('images/depth' + str(idx) + '.png')
+        transforms_depth = transforms.Compose([transforms.ToTensor()]) #transforms.RandomHorizontalFlip(),
+        depth = transforms_depth(depth)
 
+        data = self.transform(image, label)
 
-class DenseVisualization():
+        return data[0], data[1], depth
+
+class Dense():
     def __init__(self, img, depth, segmentation):
         self.img = img
         self.depth = depth
