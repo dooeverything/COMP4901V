@@ -21,20 +21,29 @@ def train(args):
     Your code here
     """
 
-    BATCH_SIZE = 32
+    BATCH_SIZE = 8
 
     train_data_path = "datasets/vehicle/train/"
     valid_data_path = "datasets/vehicle/validation/"
 
     #transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),transforms.ColorJitter(), 
-    transform = transforms.Compose([
-                                    transforms.Resize((224,224), antialias=True),
+    transform_train = transforms.Compose([
+                                    transforms.Resize((224,224)),
+                                    transforms.RandomCrop((224,224)),
                                     transforms.RandomHorizontalFlip(),
                                     transforms.ToTensor(),
+                                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
                                     ])
 
-    train_data = VehicleClassificationDataset(train_data_path, transform=transform)
-    valid_data = VehicleClassificationDataset(valid_data_path, transform=transform)
+    transform_valid = transforms.Compose([
+                                    transforms.Resize((224,224)),
+                                    transforms.CenterCrop((224,224)),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+                                    ])
+    
+    train_data = VehicleClassificationDataset(train_data_path, transform=transform_train)
+    valid_data = VehicleClassificationDataset(valid_data_path, transform=transform_valid)
 
     print(f"Train on {train_data.__len__()} samples, Validate on {valid_data.__len__()} samples")
 
@@ -42,15 +51,21 @@ def train(args):
     valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=BATCH_SIZE, shuffle=False)
 
     loss_fn = SoftmaxCrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9) #weight_decay=5e-5
+    # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-5) #weight_decay=5e-5
+    optimizer = torch.optim.Adam(model.parameters(), betas=(0.9, 0.999), lr=5e-7, weight_decay=1e-5 )
 
     confusion = ConfusionMatrix(size=6)
 
+    patience = 5
     v_loss_min = 1_000_000
+    counter = 0
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(f"run model on {device}")
     
+    # for parameter in model.resnet_model.parameters():
+    #     parameter.requires_grad = False
+
     model.cuda()
     model.train(True)
 
@@ -117,26 +132,31 @@ def train(args):
                 v_confusion.add(v_pred_max, v_t)
                 v_acc_sum += v_confusion.global_accuracy
 
-        v_loss_avg = v_loss_sum / (i+1)
-        v_acc_avg = v_acc_sum / (i+1)
+                v_loss_avg = v_loss_sum / (i+1)
+                v_acc_avg = v_acc_sum / (i+1)
+                tb_v = epoch * len(valid_loader) + i + 1
+
+                valid_logger.add_scalar('valid/loss', v_loss_avg, tb_v)
+                valid_logger.add_scalar('valid/acc', v_acc_avg, tb_v)
+
 
         print(f"  [Valid] Loss average : {v_loss_avg:.4f}, Accuracy average : {(v_acc_avg * 100):.2f}% \n")
 
-        if abs(v_loss_avg-v_prev_loss) < 1e-4:
-            print(f"***** Early Stopping! : {(v_acc_avg * 100):.2f}% and {(v_prev_loss * 100):.2f}% *****")
-            break
-
-        v_prev_loss = v_acc_avg
-
-        if v_loss_avg < v_loss_min:
-            v_loss_min = v_loss_avg
-
-        valid_logger.add_scalar('valid/loss', v_loss_avg, epoch+1)
-        valid_logger.add_scalar('valid/acc', v_acc_avg, epoch+1)
         train_logger.flush()
         valid_logger.flush()
-    
-    torch.save(model.state_dict(), 'pretrained/cnn.th')
+
+        if  v_loss_avg < v_loss_min + 5e-4: #v_iou_best < v_iou_avg and
+            print(f"save checkpoint....\n") # iou best Update! v_iou_best : {v_iou_best} vs v_iou_avg : {v_iou_avg} 
+            v_loss_min = v_loss_avg
+            counter = 0
+            torch.save(model.state_dict(), 'pretrained/cnn.th')
+        elif v_loss_avg >= v_loss_min: #abs(v_iou_avg-v_iou_best) < 5e-4 or v_iou_avg < v_iou_best or
+            counter += 1
+            print(f"[counter/patience] : [{counter}/{patience}]... \n")
+
+        if counter > patience:
+            print(f"Number of counter exceeds patience... early stopping")
+            break   
 
 if __name__ == '__main__':
     import argparse

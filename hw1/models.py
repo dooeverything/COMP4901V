@@ -24,10 +24,6 @@ class CNNClassifier(torch.nn.Module):
         #self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-1])
         self.resnet_model = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
         self.resnet_model.cuda()
-
-        for parameter in self.resnet_model.parameters():
-            parameter.requires_grad = False
-        self.resnet_model.eval()
     
         self.pool = nn.AvgPool2d(7)
 
@@ -35,6 +31,7 @@ class CNNClassifier(torch.nn.Module):
         self.mlp = nn.Sequential(
             nn.Conv2d(2048, 1024, 1),
             nn.Dropout(dropout),
+            nn.BatchNorm2d(1024),
             nn.ReLU()
         )
 

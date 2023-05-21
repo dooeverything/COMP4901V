@@ -13,26 +13,29 @@ from matplotlib import pyplot as plt
 from skimage.measure import ransac
 from skimage.transform import AffineTransform
 
+from submission import *
+from helper import *
+from findM2 import *
+from visualize import *
 
 if __name__ == "__main__":
-    img_left = cv.imread('data/image1.jpg',0)
-    img_right = cv.imread('data/image2.jpg',0)
+    img1 = cv.imread('data/image1.jpg')
+    img2 = cv.imread('data/image2.jpg')
 
-    sift = cv.SIFT_create()
+    print(img1.shape)
 
-    kp1, des1 = sift.detectAndCompute(img_left,None)
-    kp2, des2 = sift.detectAndCompute(img_right,None)
+    H, W, _ = img1.shape
 
-    # FLANN_INDEX_KDTREE = 1
-    # index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees=5)
-    # search_params = dict(checks=50)
-    # flann = cv.FlannBasedMatcher()
+    sift = cv.ORB_create(3000)
+    FLANN_INDEX_LSH = 6
+    index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
+    search_params = dict(checks=50)
+    flann = cv.FlannBasedMatcher(index_params, search_params)
 
-    orb = cv.ORB_create()
-    bf = cv.BFMatcher(cv.NORM_L1, crossCheck=False)
-    matches = bf.knnMatch(des1, des2,k=2)
-
-    # matches = sorted(matches, key = lambda x:x.distance)
+    # find best matches from stereo images
+    kp1, des1 = sift.detectAndCompute(img1,None)
+    kp2, des2 = sift.detectAndCompute(img2,None)
+    matches = flann.knnMatch(des1,des2,k=2)
 
     src = []
     dst = []
@@ -40,7 +43,7 @@ if __name__ == "__main__":
 
     # Ratio test
     for m, n in matches:
-        if m.distance < 0.7*n.distance:
+        if m.distance < 0.8*n.distance:
             src.append(kp1[m.queryIdx].pt)
             dst.append(kp2[m.trainIdx].pt)
             good.append([m])
@@ -49,15 +52,37 @@ if __name__ == "__main__":
     dst = np.float32(dst).reshape(-1, 2)
 
     _, inliers = ransac((src, dst), AffineTransform, min_samples=4,
-                        residual_threshold=8, max_trials=10000)
-    
+                        residual_threshold=8, max_trials=20000)
     src = src[inliers]
     dst = dst[inliers]
 
-    img_matches = cv.drawMatchesKnn(img_left, kp1, img_right, kp2, good,
-                                 None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+    np.savez('q2.3_1.npz', src=src, dst=dst)
 
+    img_matches = cv.drawMatchesKnn(img1, kp1, img2, kp2, good,
+                                    None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
+
+    F = eightpoint(src, dst, max(H, W))
+
+    # print("Fundamental Matrix: ")
+    # print('\n')
+    displayEpipolarF(img1, img2, F)
     
+    # Load Intrinsic Matrix 
+    K = {}
+    with open('data/Intrinsic4Recon.npz', 'r') as f:
+        for line in f:
+            for value in line.split():
+                if value == 'K1:' or value == 'K2:':
+                    key = value[:2]
+                    K[key] = []
+                else:
+                    K[key].append(float(value))
 
-    plt.imshow(img_matches)
-    plt.show()
+    K1 = np.array([K['K1']]).reshape((3,3))
+    K2 = np.array([K['K2']]).reshape((3,3))
+    # visualize(img1, img2, F, K1, K2)
+
+    # E = essentialMatrix(F, K1, K2)
+
+
+

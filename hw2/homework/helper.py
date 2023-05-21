@@ -16,7 +16,6 @@ def _epipoles(E):
 
 def displayEpipolarF(I1, I2, F):
     e1, e2 = _epipoles(F)
-
     sy, sx, _ = I2.shape
 
     f, [ax1, ax2] = plt.subplots(1, 2, figsize=(12, 9))
@@ -34,13 +33,14 @@ def displayEpipolarF(I1, I2, F):
         xc = x
         yc = y
         v = np.array([xc, yc, 1])
-        l = F.dot(v)
-        s = np.sqrt(l[0]**2+l[1]**2)
+        l = F.dot(v) # epipolar line
+        s = np.sqrt(l[0]**2+l[1]**2) # the length of epipolar line
 
         if s==0:
             error('Zero line vector in displayEpipolar')
 
-        l = l/s
+        l = l/s # normalized the line
+        print(f"epipolar line : {l}")
 
         if l[0] != 0:
             ye = sy-1
@@ -54,8 +54,14 @@ def displayEpipolarF(I1, I2, F):
             ys = -(l[0] * xs + l[2])/l[1]
 
         # plt.plot(x,y, '*', 'MarkerSize', 6, 'LineWidth', 2)
-        ax1.plot(x, y, '*', MarkerSize=6, linewidth=2)
-        ax2.plot([xs, xe], [ys, ye], linewidth=2)
+        print(f"ys, xs : {[ys, xs]} and ye, xe : {[ye, xe]}")
+        
+        # plot only inlier line
+        xs = max(0, min(xs, sx-1))
+        xe = max(0, min(xe, sx-1))
+        
+        ax1.plot(x, y, '*', markersize=3, linewidth=1)
+        ax2.plot([xs, xe], [ys, ye], linewidth=1)
         plt.draw()
 
 
@@ -82,7 +88,7 @@ def refineF(F, pts1, pts2):
     f = scipy.optimize.fmin_powell(
         lambda x: _objective_F(x, pts1, pts2), F.reshape([-1]),
         maxiter=100000,
-        maxfun=10000
+        maxfun=10000, disp=False
     )
     return _singularize(f.reshape([3, 3]))
 
@@ -95,6 +101,12 @@ def camera2(E):
 
     if np.linalg.det(U.dot(W).dot(V))<0:
         W = -W
+
+    # print(f"U: {U.shape} and S: {S.shape} and V: {V.shape}")
+    uwv = U.dot(W).dot(V)
+    # print(f"uwv : {uwv}")
+    u = U[:,2].reshape([-1, 1])
+    # print(f"u after reshape: {u}")
 
     M2s = np.zeros([3,4,4])
     M2s[:,:,0] = np.concatenate([U.dot(W).dot(V), U[:,2].reshape([-1, 1])/abs(U[:,2]).max()], axis=1)
@@ -116,7 +128,11 @@ def epipolarMatchGUI(I1, I2, F):
     ax2.set_title('Verify that the corresponding point \n is on the epipolar line in this image')
     ax2.set_axis_off()
 
-    while True:
+    n_points = 0
+    save_pts1 = np.empty([n_points, 2])
+    save_pts2 = np.empty([n_points, 2])
+    while n_points < 20:
+        n_points += 1
         plt.sca(ax1)
         x, y = plt.ginput(1, mouse_stop=2)[0]
 
@@ -143,13 +159,22 @@ def epipolarMatchGUI(I1, I2, F):
             ys = -(l[0] * xs + l[2])/l[1]
 
         # plt.plot(x,y, '*', 'MarkerSize', 6, 'LineWidth', 2)
-        ax1.plot(x, y, '*', MarkerSize=6, linewidth=2)
-        ax2.plot([xs, xe], [ys, ye], linewidth=2)
+        ax1.plot(x, y, '*', markersize=4, linewidth=2)
+        # ax2.plot([xs, xe], [ys, ye], linewidth=2)
 
         # draw points
         x2, y2 = sub.epipolarCorrespondence(I1, I2, F, xc, yc)
-        ax2.plot(x2, y2, 'ro', MarkerSize=8, linewidth=2)
+
+        if x2>0 and x2<I1.shape[1] and y2>0 and y2<I1.shape[0]:
+            ax2.plot(x2, y2, 'ro', markersize=4, linewidth=2)
+        
+        save_pts1 = np.append(save_pts1, [[x, y]], axis=0)
+        save_pts2 = np.append(save_pts2, [[x2, y2]], axis=0)
+
         plt.draw()
+        
+    plt.savefig('results_q2.5_1.png')
+    return save_pts1, save_pts2
 
 def getAbsoluteScale(pos_frame_prev, pose_frame_curr):
     

@@ -1,29 +1,7 @@
 {
-    "terminal.integrated.profiles.windows": {
-        "PowerShell": {
-            "source": "PowerShell",
-            "icon": "terminal-powershell"
-        },
-        "Command Prompt": {
-            "path": [
-                "${env:windir}\\Sysnative\\cmd.exe",
-                "${env:windir}\\System32\\cmd.exe"
-            ],
-            "args": [],
-            "icon": "terminal-cmd"
-        },
-        "Git Bash": {
-            "source": "Git Bash"
-        },  
-        "Anaconda3": {           
-            "path": [
-                "${env:windir}\\Sysnative\\cmd.exe",
-                "${env:windir}\\System32\\cmd.exe"
-            ],
-            "args" : [
-                "/K",
-                "C:\\Users\\DOO\\anaconda3\\Scripts\\activate.bat C:\\Users\\DOO\\anaconda3 & conda activate dlcv"
-            ]
-        }
-    },
+    "python.pythonPath": "C:\\Users\\DOO\\anaconda3\\envs\\dlcv\\python.exe",
+    "terminal.integrated.shellArgs.windows": ["/K", "C:\\Users\\DOO\\anaconda3\\Scripts\\activate.bat C:\\Users\\DOO\\anaconda3 & conda activate dlcv"],
+    "terminal.integrated.shell.windows": "C:\\Windows\\System32\\cmd.exe",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
 }
