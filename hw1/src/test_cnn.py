@@ -20,8 +20,6 @@ def test(args):
     path = 'pretrained/cnn.th'
     model.load_state_dict(torch.load(path))
     model.cuda()
-    model.eval()
-
 
     data_path = 'datasets/vehicle/test'
     test_data = VehicleClassificationDataset(dataset_path=data_path, train=False)
@@ -29,6 +27,8 @@ def test(args):
 
     confusion = ConfusionMatrix(size=6)
     test_acc = 0
+    model.train(False)
+    model.eval()
     with torch.no_grad():
         for i, data in enumerate(test_loader):
             X, t = data

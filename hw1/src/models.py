@@ -16,39 +16,39 @@ class CNNClassifier(torch.nn.Module):
         Your code here
         """
         dropout = 0.1
+        MODEL_PATH = "pretrained/resnet50-0676ba61.pth"
+        print(f"Load model from {MODEL_PATH}")
         
+        # Load a pretrained resnet50 model
         model_resnet50 = models.resnet50()
-        model_load = torch.load("pretrained/resnet50-0676ba61.pth") #models.resnet50(weights="IMAGENET1K_V1")
-        model_resnet50.load_state_dict(model_load)
-
-        #self.model = torch.nn.Sequential(*list(model_resnet50.children())[:-1])
-        self.resnet_model = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
-        self.resnet_model.cuda()
-    
+        model_resnet50.load_state_dict(torch.load(MODEL_PATH))
+        self.encoder = torch.nn.Sequential(*list(model_resnet50.children())[:-2])
         self.pool = nn.AvgPool2d(7)
 
         # input : (2048, 1, 1) -> output : (1024, 1, 1)
         self.mlp = nn.Sequential(
             nn.Conv2d(2048, 1024, 1),
-            nn.Dropout(dropout),
             nn.BatchNorm2d(1024),
+            nn.Dropout(dropout),
             nn.ReLU()
         )
 
         self.head = nn.Sequential(
             nn.Linear(1024, 1024),
             nn.Dropout(dropout),
-            nn.ReLU(),
             nn.LayerNorm(1024),
+            nn.ReLU(),
             nn.Linear(1024, 6)
         )
-
 
     def forward(self, x):
         """
         Your code here
-        """                
-        x = self.resnet_model(x)
+        """    
+        normalized_transform = transforms.Compose([transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+        inputs = normalized_transform(x).float()
+            
+        x = self.encoder(inputs)
         x = self.pool(x)
         x = self.mlp(x)
         x = torch.squeeze(x)
@@ -67,14 +67,13 @@ class FCN_ST(torch.nn.Module):
         Hint: Use residual connections
         Hint: Always pad by kernel_size / 2, use an odd kernel_size
         """
-
         self.n_seg = n_seg
+        MODEL_PATH = "pretrained/resnet50-0676ba61.pth"
+        print(f"Load model from {MODEL_PATH}")
 
         # Load a pretrained resnet50 model
         model_resnet50 = models.resnet50()
-        loaded_model = torch.load("pretrained/resnet50-0676ba61.pth") #models.resnet50(weights="IMAGENET1K_V1")        
-        model_resnet50.load_state_dict(loaded_model)
-
+        model_resnet50.load_state_dict(torch.load(MODEL_PATH))
         self.encoder = torch.nn.Sequential(*list(model_resnet50.children())[:-2]) 
 
         self.relu = nn.ReLU()
@@ -93,20 +92,14 @@ class FCN_ST(torch.nn.Module):
         self.upconv5 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1)
         self.bn5 = nn.BatchNorm2d(32)
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(32)
-        )
-
         self.head_seg = nn.Sequential(
             nn.Conv2d(32, 32, 3, padding=1, bias=False),
+            nn.Dropout(0.5),
             nn.BatchNorm2d(32),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
+            nn.ReLU(),
             nn.Conv2d(32, 32, 3, padding=1, bias=False),
             nn.BatchNorm2d(32),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
+            nn.ReLU(),
             nn.Conv2d(32, n_seg, kernel_size=1)
         )
 
@@ -119,7 +112,10 @@ class FCN_ST(torch.nn.Module):
               if required (use z = z[:, :, :H, :W], where H and W are the height and width of a corresponding CNNClassifier
               convolution
         """ 
-        inputs = x.float()
+
+        normalized_transform = transforms.Compose([transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+        inputs = normalized_transform(x).float()
+
         x1 = self.encoder[:2](inputs) # [BS, 3, 128, 256] -> [BS, 64, 64, 128]
         x2 = self.encoder[2:5](x1) # [BS, 64, 64, 128] -> [BS, 256, 32, 64]
         x3 = self.encoder[5](x2) #  [BS, 256, 32, 64] -> [BS, 512, 16, 32]
@@ -140,8 +136,7 @@ class FCN_ST(torch.nn.Module):
 
         x = self.bn5(self.relu(self.upconv5(x))) # [BS, 32, 128, 256]
 
-        residual = self.conv(inputs)
-        x = self.head_seg(x + residual) # [BS, C, 128, 256]
+        x = self.head_seg(x) # [BS, C, 128, 256]
         return x
 
 class FCN_MT(torch.nn.Module):
@@ -157,45 +152,31 @@ class FCN_MT(torch.nn.Module):
         """
 
         MODEL_PATH = 'pretrained/fcn_seg.th'
+        print(f"Load model from {MODEL_PATH}")
         model_fcn_st =  FCN_ST(n_seg)
         checkpoint = torch.load(MODEL_PATH, map_location='cpu')
         model_fcn_st.load_state_dict(checkpoint)
         
         # FCN backbone without the head segmentation
         self.backbone = torch.nn.Sequential(*list(model_fcn_st.children())[:-2])
-        print(self.backbone)
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(32)
-        )
         self.head_seg = nn.Sequential(
             nn.Conv2d(32, 32, 3, padding=1, bias=False),
+            nn.Dropout(0.5),
             nn.BatchNorm2d(32),
-            nn.ReLU(True),
+            nn.ReLU(),
             nn.Conv2d(32, 32, 3, padding=1, bias=False),
             nn.BatchNorm2d(32),
-            nn.ReLU(True),
+            nn.ReLU(),
             nn.Conv2d(32, n_seg, kernel_size=1)
         )
 
         self.head_depth = nn.Sequential(
             nn.Conv2d(32, 32, 3, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.ReLU(True),
             nn.Dropout(0.2),
-            nn.Conv2d(32, 32, 3, padding=1, bias=False),
             nn.BatchNorm2d(32),
             nn.ReLU(True),
             nn.Conv2d(32, 1, kernel_size=1)
-            # nn.Conv2d(32, 32, 3, padding=1),
-            # nn.BatchNorm2d(32),
-            # nn.ReLU(),
-            # nn.Dropout(0.1),
-            # nn.Conv2d(32, 32, 3, padding=1),
-            # nn.BatchNorm2d(32),
-            # nn.ReLU(),
-            # nn.Conv2d(32, 1, kernel_size=1)
         )
 
     def forward(self, x):
@@ -209,11 +190,11 @@ class FCN_MT(torch.nn.Module):
               if required (use z = z[:, :, :H, :W], where H and W are the height and width of a corresponding strided
               convolution
         """
-        inputs = x.float()
+        normalized_transform = transforms.Compose([transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+        inputs = normalized_transform(x).float()
+        
         x = self.backbone(inputs)
-        residual = self.conv(inputs)
-
-        x_seg = self.head_seg(x + residual) # [BS, C, 128, 256]
+        x_seg = self.head_seg(x) # [BS, C, 128, 256]
         x_dep = self.head_depth(x) # [BS, 1, 128, 256]
 
         return x_seg, x_dep
@@ -226,20 +207,14 @@ class CrossEntropyLossSeg(nn.Module):
 
     def forward(self, inputs, labels):
         
-        # FCN Loss function
+        # Customized FCN Loss function
         # input & output : (BS, 19, 128, 256) 
-        
         BS, C, H, W = inputs.shape
 
         inputs = inputs - torch.max(inputs) # prevent the overflow
-
         exp = torch.exp(inputs)
         sum = torch.sum(exp, dim=1, keepdim=True)
-
         softmax = exp / (sum + 1e-8)
-
-        # print(f"input : {inputs.shape} or {inputs.min()} or {inputs.max()}")
-        # print(f"label : {labels.shape} or {labels.min()} or {labels.max()}")
 
         if torch.any(torch.isnan(softmax)):
             print(f"softmax : {torch.any(torch.isnan(softmax))} or {softmax.min()} or {softmax.max()}")
@@ -248,27 +223,16 @@ class CrossEntropyLossSeg(nn.Module):
             print(f"sum: {torch.any(torch.isnan(sum))} and {sum[sum==0]} or {sum.min()} or {sum.max()}")
             print(softmax.min())
 
-        # print(f"softmax : {softmax.shape} or {softmax.min()} or {softmax.max()}")
-
         arr_cat = torch.Tensor([0]).int().cuda()
         weights = torch.cat( (self.weight, arr_cat) )
         labels = torch.unsqueeze(labels, dim=1)
         zeros = torch.zeros((BS, 1, H, W)).cuda()
         softmax = torch.cat((softmax, zeros), dim=1)
-
-        # print(f"softmax after cat: {softmax.shape} or {softmax.min()} or {softmax.max()}")
-        # print(f"label : {labels.shape} or {labels.min()} or {labels.max()}")
-
         labels[labels==self.ignore_index] = C
-
-        # print(f"label after change : {labels.shape} or {labels.min()} or {labels.max()} with {labels.median()}")
-        # raise NotImplementedError('stop!')
 
         loss = torch.gather(softmax, 1, labels)
         loss = torch.squeeze(loss, dim=1) # (BS, 128, 256)
         
-        # print(f"loss: {loss.shape} or {loss.min()} or {loss.max()}")
-
         if torch.any(torch.isnan(loss)):
             print(f"nan with {loss[0].shape}")
             toImg = transforms.ToPILImage()
@@ -304,7 +268,6 @@ class SoftmaxCrossEntropyLoss(nn.Module):
         Hint: return loss, F.cross_entropy(inputs, targets)
         """
         # softmax function
-
         # negative log softmax loss function           
         inputs = inputs - torch.max(inputs) 
         softmax = torch.exp(inputs) /  ( torch.sum(torch.exp(inputs), 1, keepdim=True) + 1e-8)
@@ -316,7 +279,6 @@ class DepthLoss(nn.Module):
         super().__init__()
 
     def forward(self, inputs, depth):
-
         inputs[inputs<0] = 0
         inputs = torch.log(inputs + 1e-8)
         depth = torch.log(depth + 1e-8)
@@ -332,7 +294,6 @@ class DepthLoss(nn.Module):
         loss2 = (sum*sum) / (2*size*size)
 
         loss_depth = torch.sum(loss1 - loss2)
-        # print(f"loss {loss_depth}")
         return loss_depth
 
 model_factory = {

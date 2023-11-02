@@ -9,6 +9,8 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import functional as F
 import dense_transforms as dt
+from matplotlib import cm
+from torchvision.utils import save_image
 
 
 class VehicleClassificationDataset(Dataset):
@@ -59,14 +61,14 @@ class VehicleClassificationDataset(Dataset):
         return img, label
 
 class DenseCityscapesDataset(Dataset):
-    def __init__(self, dataset_path, transform=None):
+    def __init__(self, path=None, transform=None):
         """
         Your code here
         """
         
-        print("initiating dataset " + dataset_path)
+        print("initiating dataset " + path)
         
-        self.data_path = dataset_path
+        self.data_path = path
         self.transform = transform
         self.data_types = ['depth', 'image', 'label']
 
@@ -76,7 +78,7 @@ class DenseCityscapesDataset(Dataset):
         
         for data_type in self.data_types:
             # print(data_type)
-            data_path = dataset_path + data_type
+            data_path = path + data_type
             for npy_file in os.listdir(data_path):
                 npy_path = data_path + '/' + npy_file
                 _, file_extension = os.path.splitext(npy_file)
@@ -117,41 +119,55 @@ class DenseCityscapesDataset(Dataset):
         depth = (0.222384*2273.82) / d
         depth[depth<0] = 0
         depth = Image.fromarray( np.uint8(depth), mode='L') 
-        # depth.save('images/depth' + str(idx) + '.png')
-        transforms_depth = transforms.Compose([transforms.ToTensor()]) #transforms.RandomHorizontalFlip(),
-        depth = transforms_depth(depth)
+        
+        transforms_depth = transforms.Compose([transforms.ToTensor()]) 
+        
+        if self.transform:
+            data = self.transform(image, label)
+            depth = transforms_depth(depth)
 
-        data = self.transform(image, label)
-
-        return data[0], data[1], depth
+        return data[0], data[1], depth.float()
 
 class Dense():
-    def __init__(self, img, depth, segmentation):
+    def __init__(self, img, depth, segmentation, n_vis=6):
         self.img = img
         self.depth = depth
         self.segmentation = segmentation
+        self.n_vis = n_vis
 
-    def __visualizeitem__(self):
+    def __visualizeitem__(self, idx):
         """
         Your code here
         Hint: you can visualize your model predictions and save them into images. 
         """
-        raise NotImplementedError('DenseVisualization.__visualizeitem__')
+        self.img = torch.squeeze(self.img, dim=0)
+        seg_gt = self.segmentation[0]
+        seg_pred = self.segmentation[1]
+        depth_gt = self.depth[0]
+        depth_pred = self.depth[1]
 
+        save_image(self.img,fp='visualize/images/'+str(idx)+'.png')
+
+        dp_gt = Image.fromarray(cm.gist_rainbow(torch.squeeze(depth_gt).cpu(), bytes=True)).convert('RGB')
+        dp_gt.save(fp='visualize/depths/gt/'+str(idx)+'.png')
+        dp_pred = Image.fromarray(cm.gist_rainbow(torch.squeeze(depth_pred).cpu(), bytes=True)).convert('RGB')
+        dp_pred.save(fp='visualize/depths/prediction/'+str(idx)+'.png')
+
+        lb_gt = dt.label_to_pil_image(torch.squeeze(seg_gt, dim=0).cpu()).convert('RGB')
+        lb_gt.save(fp='visualize/segmentations/gt/'+str(idx)+'.png')
+        lb_gt = dt.label_to_pil_image(torch.squeeze(seg_pred, dim=0).argmax(dim=0).cpu().cpu()).convert('RGB')
+        lb_gt.save(fp='visualize/segmentations/prediction/'+str(idx)+'.png')
 
 def load_data(dataset_path, num_workers=0, batch_size=128, **kwargs):
     dataset = VehicleClassificationDataset(dataset_path, **kwargs)
     return DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, shuffle=True, drop_last=True)
 
-
 def load_dense_data(dataset_path, num_workers=0, batch_size=32, **kwargs):
     dataset = DenseCityscapesDataset(dataset_path, **kwargs)
     return DataLoader(dataset, num_workers=num_workers, batch_size=batch_size, shuffle=True, drop_last=True)
 
-
 def _one_hot(x, n):
     return (x.view(-1, 1) == torch.arange(n, dtype=x.dtype, device=x.device)).int()
-
 
 class ConfusionMatrix(object):
     def _make(self, preds, labels):
@@ -201,7 +217,6 @@ class ConfusionMatrix(object):
     def per_class(self):
         return self.matrix / (self.matrix.sum(1, keepdims=True) + 1e-5)
 
-
 class DepthError(object):
     def __init__(self, gt, pred):
         """
@@ -215,10 +230,10 @@ class DepthError(object):
     def compute_errors(self):
         """Computation of error metrics between predicted and ground truth depths
         """
-        thresh = np.maximum((self.gt / self.pred), (self.pred / self.gt))
-        a1 = (thresh < 1.25     ).mean()
-        a2 = (thresh < 1.25 ** 2).mean()
-        a3 = (thresh < 1.25 ** 3).mean()
+        thresh = torch.maximum((self.gt / self.pred), (self.pred / self.gt))
+        a1 = torch.Tensor((thresh < 1.25)).float().mean()
+        a2 = torch.Tensor((thresh < 1.25**2)).float().mean()
+        a3 = torch.Tensor((thresh < 1.25**3)).float().mean()
 
         # rmse = (self.gt - self.pred) ** 2
         # rmse = np.sqrt(rmse.mean())
@@ -226,8 +241,9 @@ class DepthError(object):
         # rmse_log = (np.log(self.gt) - np.log(self.pred)) ** 2
         # rmse_log = np.sqrt(rmse_log.mean())
 
-        abs_rel = np.mean(np.abs(self.gt - self.pred) / self.gt)
-
+        # abs_rel = torch.mean(torch.abs(self.gt - self.pred) / self.gt)
+        abs_rel = torch.abs((self.gt-self.pred)/self.gt)
+        abs_rel = abs_rel.masked_fill(abs_rel==np.inf, 0)
+        abs_rel = abs_rel.mean()
         # sq_rel = np.mean(((self.gt - self.pred) ** 2) / self.gt)
-
         return abs_rel, a1, a2, a3

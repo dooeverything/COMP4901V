@@ -1,11 +1,17 @@
 '''
-Q2.4.3:
-    1. Load point correspondences calculated and saved in Q2.3.1
-    2. Obtain the correct M2
-    3. Save the correct M2, C2, and P to q3_3.npz
+Q2.5.2:
+    1. Integrating everything together.
+    2. Loads necessary files from ../data/ and visualizes 3D reconstruction using scatter
 '''
+import cv2 as cv
 import numpy as np
-from submission import triangulate
+import matplotlib.pyplot as plt
+
+from skimage.measure import ransac
+from skimage.transform import AffineTransform
+
+from submission import essentialMatrix, epipolarCorrespondence, triangulate, eightpoint
+from helper import camera2
 
 def findM2(M2s: list, 
            K1: np.array, 
@@ -30,12 +36,71 @@ def findM2(M2s: list,
 
     max_idx = num_pos.argmax()
 
+    # print(Ps.shape)
 
     # print(f"n_neg1: {n_negs[0]}, n_neg2: {n_negs[1]}, n_neg3 {n_negs[2]}, n_neg4: {n_negs[3]}")
     # print(f"smallest negative at {min_idx}")
     # np.savez('q2.4_3.npz', M2=M2s[:,:,idx], C2=C2s[idx,:,:], P=Ps[idx])
 
-    return M2s[:,:,max_idx], C1, C2s[max_idx,:,:], Ps
+    return M2s[:,:,max_idx], C1, C2s[max_idx,:,:], Ps[max_idx]
+
+
+def visualize(img1, img2, F, K1, K2):
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection='3d', elev=50, azim=-40)
+    print("Visualization")
+
+    E = essentialMatrix(F, K1, K2)
+    M2s = camera2(E)
+
+    H, W, _ = img1.shape
+
+    pts1_x = []
+    pts1_y = []
+    with open('data/VisPts.npz', 'r') as f:
+        for line in f:
+            pts1 = line.split()
+            pts1_x.append(int(pts1[0]))
+            pts1_y.append(int(pts1[1]))
+            
+    pts1 = np.stack( (pts1_x, pts1_y), axis=1)
+
+    N, _ = pts1.shape
+    # print(pts1.shape)
+
+    # Get all the correspondence points
+    src_x = []
+    src_y = []
+
+    dst_x = []
+    dst_y = []
+    for i in range(N):
+        x1 = pts1[i,0]
+        y1 = pts1[i,1]
+
+        x2, y2 = epipolarCorrespondence(img1, img2, F, x1, y1)
+        # if x2 > 0 and x2 < W and y2 > 0 and y2 < H:
+        src_x.append(x1)
+        src_y.append(y1)
+
+        dst_x.append(x2)
+        dst_y.append(y2)
+
+    src = np.stack((src_x, src_y), axis=1)
+    dst = np.stack((dst_x, dst_y), axis=1)
+    # print(dst)
+
+    M2, C1, C2, P = findM2(M2s, K1, K2, src, dst)
+
+    # Only get inliers
+    p = P[abs(P[:,0] - np.mean(P[:,0])) < 2 * np.std(P[:,0])]
+    np.savez('q2.5_2.npz', M2=M2, C1=C1, C2=C2, P=P)
+    print(p.shape)
+    ax.scatter(p[:,0], p[:,1], p[:,2])
+
+    plt.show()
+
+    return
 
 if __name__ == "__main__":
     img1 = cv.imread('data/image1.jpg')
@@ -45,9 +110,9 @@ if __name__ == "__main__":
 
     H, W, _ = img1.shape
 
-    sift = cv.ORB_create(3000)
-    FLANN_INDEX_LSH = 6
-    index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
+    sift = cv.SIFT_create()
+    FLANN_INDEX_KDTREE = 1
+    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
     search_params = dict(checks=50)
     flann = cv.FlannBasedMatcher(index_params, search_params)
 
@@ -76,16 +141,7 @@ if __name__ == "__main__":
     src = src[inliers]
     dst = dst[inliers]
 
-    np.savez('q2.3_1.npz', src=src, dst=dst)
-
-    img_matches = cv.drawMatchesKnn(img1, kp1, img2, kp2, good,
-                                    None, flags=cv.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS)
-
     F = eightpoint(src, dst, max(H, W))
-
-    # print("Fundamental Matrix: ")
-    # print('\n')
-    # displayEpipolarF(img1, img2, F)
 
     # Load Intrinsic Matrix 
     K = {}
@@ -100,15 +156,4 @@ if __name__ == "__main__":
 
     K1 = np.array([K['K1']]).reshape((3,3))
     K2 = np.array([K['K2']]).reshape((3,3))
-    # visualize(img1, img2, F, K1, K2)
-
-    E = essentialMatrix(F, K1, K2)
-    M2s = camera2(E)
-    M2, C2, P = findM2(M2s, K1, K2, src, dst)
-
-    print(M2)
-    print(C2)
-    print(P)
-
-    # np.savez('q2.4_3.npz', M2=M2, C2=C2, P=P)
-
+    visualize(img1, img2, F, K1, K2)

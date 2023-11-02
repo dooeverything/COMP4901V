@@ -20,10 +20,6 @@ if __name__ == "__main__":
 		for line in f:
 			t = np.fromstring(line, dtype=np.float64, sep=' ')
 			t = t.reshape((3, 4))
-			xs[i][0] = t[0][3]	
-			ys[i][0] = t[2][3]
 			gt_pose.append(t)
-			i += 1
 
-	path_gt = np.hstack((xs, ys))
 	traj = visualOdometry('data/monocular video sequence/data', gt_pose)

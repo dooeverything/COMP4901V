@@ -48,6 +48,13 @@ class RandomHorizontalFlip(object):
             target = F.hflip(target)
         return image, target
 
+class MoreAndCrop(object):
+    def __init__(self, size=(256, 256)):
+        self.size = size
+    def __call__(self, image, target):
+        image = F.five_crop(image, size=(128, 256))[:3]
+        return image, target
+
 
 class Normalize(T.Normalize):
     def __call__(self, image, target):
@@ -96,6 +103,18 @@ def label_to_pil_image(lbl):
 
 class ToTensor(object):
     def __call__(self, image, label):
+        
+        # if image is augmented
+        if type(image) == tuple:
+            image = [F.to_tensor(img) for img in image]
+            image = torch.stack(list(image), dim=0)
+
+            N = image.shape[0]
+            label = label_to_tensor(label)
+            label = label.unsqueeze(0).repeat(N, 1, 1)
+
+            return image, label
+
         return F.to_tensor(image), label_to_tensor(label)
 
 class ToTensor3(object):

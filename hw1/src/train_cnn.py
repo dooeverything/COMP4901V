@@ -12,11 +12,11 @@ def train(args):
     from os import path
     model = CNNClassifier()
     train_logger, valid_logger = None, None
-    if args.log_dir is not None:
+    if args.logdir is not None:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         PATH = 'CNN_{}'.format(timestamp)
-        train_logger = tb.SummaryWriter(path.join(args.log_dir, PATH ,'train'), flush_secs=1)
-        valid_logger = tb.SummaryWriter(path.join(args.log_dir, PATH ,'valid'), flush_secs=1)
+        train_logger = tb.SummaryWriter(path.join(args.logdir, PATH ,'train'), flush_secs=1)
+        valid_logger = tb.SummaryWriter(path.join(args.logdir, PATH ,'valid'), flush_secs=1)
     """
     Your code here
     """
@@ -28,18 +28,17 @@ def train(args):
 
     #transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),transforms.ColorJitter(), 
     transform_train = transforms.Compose([
-                                    transforms.Resize((224,224)),
+                                    transforms.Resize((256,256)),
                                     transforms.RandomCrop((224,224)),
                                     transforms.RandomHorizontalFlip(),
                                     transforms.ToTensor(),
-                                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
                                     ])
 
     transform_valid = transforms.Compose([
-                                    transforms.Resize((224,224)),
+                                    transforms.Resize((256,256)),
                                     transforms.CenterCrop((224,224)),
+                                    transforms.RandomHorizontalFlip(),
                                     transforms.ToTensor(),
-                                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
                                     ])
     
     train_data = VehicleClassificationDataset(train_data_path, transform=transform_train)
@@ -52,7 +51,7 @@ def train(args):
 
     loss_fn = SoftmaxCrossEntropyLoss()
     # optimizer = torch.optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=1e-5) #weight_decay=5e-5
-    optimizer = torch.optim.Adam(model.parameters(), betas=(0.9, 0.999), lr=5e-7, weight_decay=1e-5 )
+    optimizer = torch.optim.Adam(model.parameters(), betas=(0.9, 0.999), lr=5e-6, weight_decay=1e-5 )
 
     confusion = ConfusionMatrix(size=6)
 
@@ -66,11 +65,12 @@ def train(args):
     # for parameter in model.resnet_model.parameters():
     #     parameter.requires_grad = False
 
+    for parameter in model.encoder.parameters():
+        parameter.requires_grad = False
+
     model.cuda()
     model.train(True)
-
     EPOCHS = 30
-    v_prev_loss = 0.0
     for epoch in range(EPOCHS):
         print(f"EPOCH [{epoch + 1}/{EPOCHS}] for train... with {len(train_loader)}")        
         loss_sum = 0
@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--log_dir')
+    parser.add_argument('--logdir')
     # Put custom arguments here
 
     args = parser.parse_args()

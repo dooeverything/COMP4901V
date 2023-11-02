@@ -1,22 +1,38 @@
 '''
-It is a main function that can be used for you to conduct the tasks in 3D reconstruction.
-You run this main function to generate the expected outputs and results described in the Instruction.pdf, 
-by calling functions implemented in submission.py and helper.py
-You are free to write it in your own style.
+Q2.4.3:
+    1. Load point correspondences calculated and saved in Q2.3.1
+    2. Obtain the correct M2
+    3. Save the correct M2, C2, and P to q3_3.npz
 '''
-
-# Insert your package here
-import cv2 as cv
 import numpy as np
-from matplotlib import pyplot as plt
+from submission import triangulate
 
-from skimage.measure import ransac
-from skimage.transform import AffineTransform
+def findM2(M2s: list, 
+           K1: np.array, 
+           K2: np.array,
+           src: np.array,
+           dst: np.array) -> None:
 
-from submission import *
-from helper import *
-from findM2 import *
-from visualize import *
+    m1 = np.zeros((3, 4))
+    m1[0,0] = m1[1,1] = m1[2,2] = 1
+
+    C1 = K1 @ m1
+    C2s = np.array([K2 @ M2s[:,:,0], K2 @ M2s[:,:,1],  
+                    K2 @ M2s[:,:,2], K2 @ M2s[:,:,3]])
+
+    Ps = []
+    num_pos = np.zeros((4,))
+    for i in range(4):
+        P, _ = triangulate(C1, src, C2s[i], dst)
+        pos_z = (P[:,2]>0).sum()
+        num_pos[i] = pos_z
+        Ps.append(P)
+
+    max_idx = num_pos.argmax()
+
+    # np.savez('q2.4_3.npz', M2=M2s[:,:,idx], C2=C2s[idx,:,:], P=Ps[idx])
+
+    return M2s[:,:,max_idx], C1, C2s[max_idx,:,:], Ps
 
 if __name__ == "__main__":
     img1 = cv.imread('data/image1.jpg')
@@ -53,6 +69,7 @@ if __name__ == "__main__":
 
     _, inliers = ransac((src, dst), AffineTransform, min_samples=4,
                         residual_threshold=8, max_trials=20000)
+    
     src = src[inliers]
     dst = dst[inliers]
 
@@ -63,10 +80,6 @@ if __name__ == "__main__":
 
     F = eightpoint(src, dst, max(H, W))
 
-    # print("Fundamental Matrix: ")
-    # print('\n')
-    displayEpipolarF(img1, img2, F)
-    
     # Load Intrinsic Matrix 
     K = {}
     with open('data/Intrinsic4Recon.npz', 'r') as f:
@@ -82,7 +95,9 @@ if __name__ == "__main__":
     K2 = np.array([K['K2']]).reshape((3,3))
     # visualize(img1, img2, F, K1, K2)
 
-    # E = essentialMatrix(F, K1, K2)
+    E = essentialMatrix(F, K1, K2)
+    M2s = camera2(E)
+    M2, C2, P = findM2(M2s, K1, K2, src, dst)
 
-
+    # np.savez('q2.4_3.npz', M2=M2, C2=C2, P=P)
 

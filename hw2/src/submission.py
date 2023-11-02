@@ -28,19 +28,7 @@ def eightpoint(pts1, pts2, M) -> np.array:
     T = np.array([ [1.0/M,    0,   0],
                    [0,    1.0/M,   0],
                    [0,        0,   1] ])
-    # m1 = pts1.mean(axis=0)
-    # m2 = pts2.mean(axis=0)
     
-    # m1 = np.array([ [1, 0, -m1[0]],
-    #                 [0, 1, -m1[1]],
-    #                 [0, 0,      0] ])
-
-    # m2 = np.array([ [1, 0, -m2[0]],
-    #                 [0, 1, -m2[1]],
-    #                 [0, 0,      0] ])
-    # T1 = T @ m1
-    # T2 = T @ m2
-
     ones = np.ones((N,1))  
     pts1_T = np.append(pts1, ones, axis=1).T
     pts2_T = np.append(pts2, ones, axis=1).T
@@ -62,7 +50,7 @@ def eightpoint(pts1, pts2, M) -> np.array:
     F = refineF(V[8,:], pts1, pts2)
     F = T.T @ F @ T
 
-    # np.savez('q2.3_2.npz', F=F, M=M)
+    # np.savez('q2.3_2.npz', F=F, M=T)
 
     return F
 
@@ -256,8 +244,6 @@ def RTRecovery(im1, im2, k1, k2):
         num_pos_z[i] = pos_z
     max_idx = num_pos_z.argmax()
     sort_num = num_pos_z.argsort()
-    # print(num_pos_z)
-    # print(sort_num)
 
     r1 = Rts[sort_num[-1]][0]
     r2 = Rts[sort_num[-2]][0]
@@ -307,7 +293,6 @@ def visualOdometry(datafolder, GT_Pose, plot=True):
     # Load Monocular images
     for file in tqdm(sorted(os.listdir(datafolder))):
         img_path = os.path.join(datafolder, file)
-        # print(img_path)
         imgs.append(cv.imread(img_path))
 
     R_init = np.array([[1,0,0],
